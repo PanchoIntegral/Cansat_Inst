@@ -67,12 +67,8 @@
 
 <script>
 import axios from 'axios';
-// La URL de tu API Flask. Durante el desarrollo en tu PC,
-// será la IP de la Pi. Para producción, si Flask sirve Vue, podría ser relativo.
-// Si Flask y Vue dev server corren en la misma máquina (tu PC) pero puertos diferentes:
-// const API_URL = 'http://localhost:5000/api/cansat_data';
-// Si Flask está en la Pi y Vue dev server en tu PC:
-const API_URL = 'http://192.168.1.132/api/cansat_data';
+// En producción, usamos una ruta relativa ya que el frontend y el backend están en el mismo dominio
+const API_URL = '/api/cansat_data';
 
 
 export default {
