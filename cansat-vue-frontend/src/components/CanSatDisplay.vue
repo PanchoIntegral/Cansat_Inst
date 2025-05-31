@@ -67,8 +67,8 @@
 
 <script>
 import axios from 'axios';
-// En producción, usamos una ruta relativa ya que el frontend y el backend están en el mismo dominio
-const API_URL = '/api/cansat_data';
+// En desarrollo, usamos la IP del servidor Flask
+const API_URL = 'http://172.20.10.2/api/cansat_data';
 
 
 export default {
