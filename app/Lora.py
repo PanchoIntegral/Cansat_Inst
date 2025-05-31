@@ -45,7 +45,8 @@ class LoRaReceiver:
 
             # Configuración del módulo RFM9x
             log_debug("Intentando inicializar RFM9x...")
-            self.rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, 915.0)
+            self.rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, 433.0) # <--- ¡CORRECTO para tu módulo!
+            
             
             # Verificación del módulo
             version = self.rfm9x._read_u8(0x42)  # Registro de versión

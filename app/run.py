@@ -3,10 +3,11 @@ from flask_cors import CORS
 import json
 import os
 
-app = Flask(__name__, static_folder='dist/js', template_folder='dist') # Ajusta static_folder si Vue usa otro nombre para JS
-CORS(app) # Habilita CORS para todas las rutas, útil para desarrollo con Vue dev server
+app = Flask(__name__, static_folder='dist', template_folder='dist')
+CORS(app)  # Habilita CORS para todas las rutas
 
-DATA_FILE_PATH = "/tmp/cansat_latest_data.json" # Mismo path que en lora_receiver.py
+# Usar la misma ruta que en Lora.py
+DATA_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cansat_latest_data.json")
 
 @app.route('/api/cansat_data')
 def get_cansat_data():
@@ -21,32 +22,28 @@ def get_cansat_data():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/<path:subpath>')
-def serve_vue_assets(subpath):
-    # Comprueba si el subpath es un directorio conocido de assets de Vue
-    known_asset_dirs = ['js', 'css', 'img', 'fonts'] # Añade otros si es necesario
-    path_parts = subpath.split('/')
-    if path_parts[0] in known_asset_dirs:
-        return send_from_directory(os.path.join(app.root_path, 'dist', path_parts[0]), path_parts[1] if len(path_parts) > 1 else '')
-    # Si no es un asset conocido, podría ser una ruta de Vue Router, así que sirve index.html
-    return send_from_directory(os.path.join(app.root_path, 'dist'), 'index.html')
+@app.route('/<path:filename>')
+def serve_vue_assets(filename):
+    try:
+        return send_from_directory(app.static_folder, filename)
+    except:
+        return send_from_directory(app.static_folder, 'index.html')
 
 
-# Servir el index.html de Vue para la ruta raíz y cualquier otra ruta no API (manejo de Vue Router)
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>') # Captura todas las rutas no manejadas por la API o assets
-def serve_vue_app(path):
-    # Si el archivo solicitado existe en dist (ej. favicon.ico), sírvelo.
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)): # app.static_folder es 'dist'
-         return send_from_directory(app.static_folder, path)
-    # De lo contrario, sirve el index.html principal de Vue
-    # (Vue Router se encargará del enrutamiento del lado del cliente)
-    index_path = os.path.join(app.root_path, 'dist', 'index.html')
-    if not os.path.exists(index_path):
-        return jsonify({"error": "Vue app not built or index.html not found in dist folder."}), 404
-    return send_file(index_path)
+# Servir el index.html de Vue para la ruta raíz
+@app.route('/')
+def serve_vue_app():
+    try:
+        return send_from_directory(app.static_folder, 'index.html')
+    except Exception as e:
+        return jsonify({
+            "error": "Vue app not built or index.html not found in dist folder.",
+            "details": str(e)
+        }), 404
 
 
 if __name__ == '__main__':
-    # Asegúrate que corre en 0.0.0.0 para ser accesible en la red
-    app.run(host='0.0.0.0', port=5000, debug=False) # debug=False para "producción"
+    print("Iniciando servidor CANSAT...")
+    print("- Frontend: http://localhost:5000")
+    print("- API: http://localhost:5000/api/cansat_data")
+    app.run(host='0.0.0.0', port=5000, debug=False)
