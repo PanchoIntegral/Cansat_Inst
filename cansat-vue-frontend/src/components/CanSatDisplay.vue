@@ -36,7 +36,7 @@ import axios from 'axios';
 // Si Flask y Vue dev server corren en la misma máquina (tu PC) pero puertos diferentes:
 // const API_URL = 'http://localhost:5000/api/cansat_data';
 // Si Flask está en la Pi y Vue dev server en tu PC:
-const API_URL = 'http://10.21.53.193/api/cansat_data';
+const API_URL = 'http://192.168.1.132/api/cansat_data';
 
 
 export default {
