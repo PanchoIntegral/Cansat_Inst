@@ -1,6 +1,6 @@
 <template>
   <div class="cansat-display">
-    <h1>🛰️ Datos del CanSat (Vue.js)</h1>
+    <h1>🛰️ Datos del CanSat</h1>
     <div v-if="error" class="error">{{ error }}</div>
     <div v-if="loading" class="loading">Cargando datos...</div>
     <div v-if="!loading && !error && cansatData" class="data-grid">
@@ -31,13 +31,12 @@
 
 <script>
 import axios from 'axios';
-
 // La URL de tu API Flask. Durante el desarrollo en tu PC,
 // será la IP de la Pi. Para producción, si Flask sirve Vue, podría ser relativo.
 // Si Flask y Vue dev server corren en la misma máquina (tu PC) pero puertos diferentes:
 // const API_URL = 'http://localhost:5000/api/cansat_data';
 // Si Flask está en la Pi y Vue dev server en tu PC:
-const API_URL = 'http://<DIRECCION_IP_DE_TU_RASPBERRY>:5000/api/cansat_data';
+const API_URL = 'http://10.21.53.193/api/cansat_data';
 
 
 export default {
