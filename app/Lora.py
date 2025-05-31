@@ -8,7 +8,7 @@ import os
 
 # Configuración de depuración
 DEBUG = True
-DATA_FILE_PATH = "/tmp/cansat_latest_data.json"
+DATA_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cansat_latest_data.json")
 
 def log_debug(message):
     if DEBUG:
