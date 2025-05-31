@@ -1,104 +1,91 @@
-
-import board # Necesitas la biblioteca Adafruit-Blinka
+import time
+import board
 import busio
 import digitalio
-import adafruit_rfm9x # Biblioteca para el módulo LoRa RFM9x
-import time
+import adafruit_rfm9x
 import json
 import os
 
-# --- Configuración del Módulo LoRa (¡AJUSTA ESTO A TU HARDWARE!) ---
-CS_PIN = board.CE1    # Pin Chip Select de SPI. Puede ser CE0 o CE1 (D8 o D7 en Blinka)
-RESET_PIN = board.D25 # Pin que estés usando para el RESET del módulo LoRa
-# SPI PINS (normalmente estos son fijos para el SPI0 de la Raspberry Pi)
-spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
-
-# Configura los pines CS y RESET como salidas digitales
-CS = digitalio.DigitalInOut(CS_PIN)
-RESET = digitalio.DigitalInOut(RESET_PIN)
-
-# Frecuencia de Radio (¡ASEGÚRATE QUE COINCIDA CON TU CANSAT!)
-# Ejemplos: 433.0, 868.0, 915.0 MHz
-RADIO_FREQ_MHZ = 915.0
-
-
+# Configuración de depuración
+DEBUG = True
 DATA_FILE_PATH = "/tmp/cansat_latest_data.json"
 
-print("Inicializando Gateway LoRa...")
+def log_debug(message):
+    if DEBUG:
+        print(f"[DEBUG] {message}")
 
-try:
-    # Inicializa el módulo RFM9x
-    rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, RADIO_FREQ_MHZ)
+class LoRaReceiver:
+    def __init__(self):
+        self.rfm9x = None
+        self.setup_lora()
 
-    # Opcional: Configura la potencia de transmisión si es necesario (aunque aquí es gateway)
-    # rfm9x.tx_power = 23 # Máxima potencia para algunos módulos
+    def setup_lora(self):
+        try:
+            # Configuración de pines
+            CS = digitalio.DigitalInOut(board.D25)    # GPIO 25
+            RESET = digitalio.DigitalInOut(board.D24)  # GPIO 24
+            
+            # Inicialización de SPI
+            spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
+            log_debug("SPI inicializado")
 
-    # Opcional: Configurar parámetros como spreading factor, bandwidth, coding rate si es necesario
-    # rfm9x.spreading_factor = 7 # Ejemplo
-    # rfm9x.signal_bandwidth = 125000 # Ejemplo: 125kHz
-    # rfm9x.coding_rate = 5 # Ejemplo: 4/5
+            # Configuración del módulo RFM9x
+            self.rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, 915.0, debug=True)
+            log_debug("Módulo RFM9x inicializado correctamente")
+            
+            # Configuración adicional del módulo
+            self.rfm9x.tx_power = 23
+            log_debug(f"Potencia de transmisión configurada a {self.rfm9x.tx_power} dBm")
+            return True
 
-    print(f"Gateway LoRa escuchando en {RADIO_FREQ_MHZ} MHz...")
-    print(f"Los datos recibidos se guardarán en: {DATA_FILE_PATH}")
+        except Exception as e:
+            print(f"Error al inicializar el módulo LoRa: {str(e)}")
+            if 'spi' in locals():
+                try:
+                    spi_available = spi.try_lock()
+                    print(f"Estado de SPI - Disponible: {spi_available}")
+                    if spi_available:
+                        spi.unlock()
+                except:
+                    pass
+            print("Asegúrate de haber instalado las bibliotecas Adafruit-Blinka y adafruit-circuitpython-rfm9x,")
+            print("y de que la configuración de SPI y los pines CS/RESET sean correctos.")
+            return False
 
-except Exception as e:
-    print(f"Error al inicializar el módulo LoRa: {e}")
-    print("Asegúrate de haber instalado las bibliotecas Adafruit-Blinka y adafruit-circuitpython-rfm9x,")
-    print("y de que la configuración de SPI y los pines CS/RESET sean correctos.")
-    exit()
+    def receive_data(self):
+        if not self.rfm9x:
+            return None
 
-
-try:
-    while True:
-        # Espera a recibir un paquete. El timeout es opcional pero recomendado.
-        # Un timeout más largo consume menos CPU si no hay paquetes frecuentes.
-        packet = rfm9x.receive(timeout=10.0)  # Espera un paquete por hasta 10 segundos
-
-        if packet is None:
-            # No se recibió nada durante el timeout
-            # print("Esperando paquete...") # Descomenta para ver actividad
-            pass
-        else:
-            # Paquete recibido
-            rssi = rfm9x.last_rssi  # Radio Signal Strength Indicator
-            snr = rfm9x.last_snr    # Signal to Noise Ratio (disponible en algunos módulos/bibliotecas)
-
-            print(f"¡Paquete Recibido! RSSI: {rssi} dB, SNR: {snr} dB")
-
-            try:
-                # Intenta decodificar el paquete como texto ASCII
-                # Tu CanSat debe enviar los datos en un formato que puedas parsear.
-                # Ej: "temp:25.5,pres:1012,alt:120.3" o un JSON como '{"temp":25.5, "pres":1012, "alt":120.3}'
-                payload_text = str(packet, "ascii")
-                print(f"Payload (texto): {payload_text}")
-            except UnicodeDecodeError:
-                payload_text = "Error: No se pudo decodificar el payload a ASCII."
-                print(f"Payload (bytes): {packet}") # Muestra los bytes crudos si no es ASCII
-            except Exception as e:
-                payload_text = f"Error al procesar payload: {e}"
-                print(f"Payload (bytes): {packet}")
-
-            # Prepara los datos para guardar en formato JSON
-            latest_data = {
-                "payload": payload_text,
-                "rssi": rssi,
-                "snr": snr,
-                "timestamp_gw": time.strftime("%Y-%m-%d %H:%M:%S %Z"), # Timestamp del gateway
-                "raw_packet": packet.hex() if packet else None # Opcional: paquete crudo en hexadecimal
-            }
-
-            # Guarda los datos en el archivo JSON
-            try:
+        try:
+            packet = self.rfm9x.receive(timeout=1.0)
+            if packet:
+                data = {
+                    "payload": bytes(packet).hex(),
+                    "rssi": self.rfm9x.last_rssi,
+                    "snr": self.rfm9x.last_snr,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                }
+                # Guardar datos en archivo
                 with open(DATA_FILE_PATH, "w") as f:
-                    json.dump(latest_data, f, indent=4)
-                print(f"Datos guardados en {DATA_FILE_PATH}")
-            except Exception as e:
-                print(f"ERROR al escribir datos en archivo: {e}")
+                    json.dump(data, f)
+                log_debug(f"Datos recibidos y guardados: {data}")
+                return data
+            return None
+        except Exception as e:
+            print(f"Error en la recepción: {str(e)}")
+            return None
 
-except KeyboardInterrupt:
-    print("\nCerrando receptor LoRa por interrupción del teclado.")
-except Exception as e:
-    print(f"ERROR crítico en el bucle principal del receptor LoRa: {e}")
-finally:
-    # Opcional: acciones de limpieza si fueran necesarias
-    print("Receptor LoRa detenido.")
+    def run(self):
+        print("Inicializando Gateway LoRa...")
+        if not self.rfm9x:
+            if not self.setup_lora():
+                return
+
+        print("Gateway LoRa inicializado. Esperando datos...")
+        while True:
+            self.receive_data()
+            time.sleep(0.1)
+
+if __name__ == "__main__":
+    receiver = LoRaReceiver()
+    receiver.run()
